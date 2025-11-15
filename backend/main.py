@@ -1,4 +1,4 @@
-from backend.camera import router 
+from backend.routers.camera import router 
 from fastapi import FastAPI
 
 app = FastAPI()
