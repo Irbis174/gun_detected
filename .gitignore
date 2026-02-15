@@ -1,6 +1,29 @@
-ML/data/
-ML/models/
-ML/runs/
-ML/video/
-*.pt  
-model/
+# IDE
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Artifacts & media
+artifacts/
+*.pt
+*.pth
+*.onnx
+*.avi
+*.mp4
+*.mkv
+*.mov
+*.ts
+
+# Images (ignore globally, but allow docs)
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.bmp
+*.gif
+!docs/**
+
+artifacts/
