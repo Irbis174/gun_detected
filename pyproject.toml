@@ -1,0 +1,24 @@
+[project]
+name = "diploma"
+version = "0.1.0"
+description = "Add your description here"
+#readme = "README.md"
+authors = [
+    { name = "Irbis174", email = "matvey.golovkin@mail.ru" }
+]
+requires-python = ">=3.13"
+
+dependencies = [
+    "ml",
+    "backend",
+    "frontend",
+]
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+ml = { workspace = true }
+backend = { workspace = true }
+frontend = { workspace = true }
+
