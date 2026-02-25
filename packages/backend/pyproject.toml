@@ -7,7 +7,11 @@ authors = [
     { name = "Ирбис", email = "matvey.golovkin@mail.ru" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "fastapi>=0.129.0",
+    "opencv-python>=4.13.0.92",
+    "uvicorn>=0.41.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.9.12,<0.10.0"]

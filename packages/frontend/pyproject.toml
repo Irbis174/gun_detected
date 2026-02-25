@@ -7,7 +7,10 @@ authors = [
     { name = "Ирбис", email = "matvey.golovkin@mail.ru" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "pyside6>=6.10.2",
+    "requests>=2.32.5",
+]
 
 [build-system]
 requires = ["uv_build>=0.9.12,<0.10.0"]

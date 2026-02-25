@@ -1,4 +1,4 @@
-from .main import hello
+from .main import take_bbox
 
-__all__ = ["hello"]
+__all__ = ["take_bbox"]
 
