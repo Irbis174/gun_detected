@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "python-multipart>=0.0.22",
     "torch>=2.10.0",
     "torchvision>=0.25.0",
 ]

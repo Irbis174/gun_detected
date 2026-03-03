@@ -51,6 +51,7 @@ source = { editable = "packages/backend" }
 dependencies = [
     { name = "fastapi" },
     { name = "opencv-python" },
+    { name = "pillow" },
     { name = "uvicorn" },
 ]
 
@@ -58,6 +59,7 @@ dependencies = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.129.0" },
     { name = "opencv-python", specifier = ">=4.13.0.92" },
+    { name = "pillow", specifier = ">=12.1.1" },
     { name = "uvicorn", specifier = ">=0.41.0" },
 ]
 
@@ -311,6 +313,7 @@ name = "ml"
 version = "0.1.0"
 source = { editable = "packages/ml" }
 dependencies = [
+    { name = "python-multipart" },
     { name = "torch", version = "2.10.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux' and sys_platform != 'win32'" },
     { name = "torch", version = "2.10.0+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "torchvision", version = "0.25.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux' and sys_platform != 'win32'" },
@@ -319,6 +322,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "python-multipart", specifier = ">=0.0.22" },
     { name = "torch", marker = "sys_platform != 'linux' and sys_platform != 'win32'", specifier = ">=2.10.0" },
     { name = "torch", marker = "sys_platform == 'linux' or sys_platform == 'win32'", specifier = ">=2.10.0", index = "https://download.pytorch.org/whl/cu130" },
     { name = "torchvision", marker = "sys_platform != 'linux' and sys_platform != 'win32'", specifier = ">=0.25.0" },
@@ -732,6 +736,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/93/a6/6073e4ddc2a5c7b3941606e4bc8bbaadcf0737f57450620b0793041c8d22/pyside6_essentials-6.10.2-cp39-abi3-manylinux_2_39_aarch64.whl", hash = "sha256:c2b028e4c6f8047a02c31f373408e23b4eedfd405f56c6aba8d0525c29472835", size = 76114242, upload-time = "2026-02-02T08:46:07.184Z" },
     { url = "https://files.pythonhosted.org/packages/22/a8/616bbbd009efd3e17bf9a2db09d90c6764c010565cd2bdea2a240bfd18f7/pyside6_essentials-6.10.2-cp39-abi3-win_amd64.whl", hash = "sha256:0741018c2b6395038cad4c41775cfae3f13a409e87995ac9f7d89e5b1fb6b22a", size = 74546490, upload-time = "2026-02-02T08:46:26.395Z" },
     { url = "https://files.pythonhosted.org/packages/b9/f9/c9757a984c4ffb6d12fab69e966d95dfc862a5d44e12b7900f3a03780b76/pyside6_essentials-6.10.2-cp39-abi3-win_arm64.whl", hash = "sha256:db5f4913648bb6afddb8b347edae151ee2378f12bceb03c8b2515a530a4b38d9", size = 55258626, upload-time = "2026-02-02T08:46:36.788Z" },
+]
+
+[[package]]
+name = "python-multipart"
+version = "0.0.22"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/94/01/979e98d542a70714b0cb2b6728ed0b7c46792b695e3eaec3e20711271ca3/python_multipart-0.0.22.tar.gz", hash = "sha256:7340bef99a7e0032613f56dc36027b959fd3b30a787ed62d310e951f7c3a3a58", size = 37612, upload-time = "2026-01-25T10:15:56.219Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1b/d0/397f9626e711ff749a95d96b7af99b9c566a9bb5129b8e4c10fc4d100304/python_multipart-0.0.22-py3-none-any.whl", hash = "sha256:2b2cd894c83d21bf49d702499531c7bafd057d730c201782048f7945d82de155", size = 24579, upload-time = "2026-01-25T10:15:54.811Z" },
 ]
 
 [[package]]
