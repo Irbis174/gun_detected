@@ -7,10 +7,6 @@ import os
 
 router = APIRouter(prefix='/predict', tags=['predict'])
 
-@router.get('/health')
-async def get_health():
-    return {'service': 'ml', 'status': 'ok'}
-
 @router.post('/image')
 async def predict_image(file: UploadFile = File(...)):
     content = await file.read()
