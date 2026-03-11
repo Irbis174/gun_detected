@@ -11,8 +11,11 @@ async def local_health():
 
 @router.get('/health/deps')
 async def deps_health():
-    result = {'service': 'backend', 'status': 'ok', 'deps': {}}
+    result = await check_ml_health()
+    return result
 
+async def check_ml_health():
+    result = {'service': 'backend', 'status': 'ok', 'deps': {}}
     try:
         async with httpx.AsyncClient(timeout=1.0) as client:
             r = await client.get(f'{ML_URL}/health')
