@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class InputSource:
     source_id: int

@@ -1,9 +1,10 @@
-from dataclasses import dataclass
+from pydantic import BaseModel
 import datetime
 
+class TestRunCreate(BaseModel):
+    source_id: int
 
-@dataclass
-class TestRun:
+class TestRunRead(BaseModel):
     test_run_id: int
     source_id: int
     status: str
