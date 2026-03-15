@@ -52,12 +52,22 @@ class CandidateTracker:
             candidate_list.append(new_candidate)
             return None
 
+
         matched_candidate.bbox = temporary_detection.bbox
         matched_candidate.last_seen_frame = temporary_detection.frame_index
         matched_candidate.hits += 1
 
+
         if matched_candidate.hits >= 3:
             matched_candidate.confirmed = True
+            event = DetectionEvent(detection_id=0,
+                                   test_run_id=temporary_detection.test_run_id,
+                                   frame_ts=temporary_detection.frame_index,
+                                   label = 'danger',
+                                   score = 5.0,
+                                   bbox = temporary_detection.bbox,
+                                   processing_ms = 5)
+            detection_repo.add(event)
             candidate_list.remove(matched_candidate)
             return matched_candidate
 
@@ -70,3 +80,11 @@ class CandidateTracker:
         candidates.remove(detection_candidate)
         if candidates == []:
             self.candidate_dict.pop(detection_candidate.test_run_id)
+
+
+    def prune_stale_candidates(self, test_run_id: int, current_frame: int):
+        candidates = self.candidate_dict[test_run_id]
+        max_gap = 5
+        for candidate in candidates:
+            if current_frame - candidate.last_seen_frame > max_gap:
+                self.remove(candidate)
