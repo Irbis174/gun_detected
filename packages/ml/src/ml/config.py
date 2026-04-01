@@ -19,5 +19,6 @@ if not dataset_root_raw:
 
 DATASET_ROOT = dataset_root_raw
 
-MODEL_PATH = os.getenv('MODEL_PATH', 'packages/ml/src/ml/inference/models/detect/train/best.pt')
-ML_DEVICE = os.getenv('ML_DEVICE', 'cuda:0')
+DEFAULT_MODEL_PATH = BASE_DIR / 'src' / 'ml' / 'inference' / 'models' / 'detect' / 'train' / 'weights' / 'best.pt'
+MODEL_PATH = os.getenv('MODEL_PATH', str(DEFAULT_MODEL_PATH))
+ML_DEVICE = os.getenv('ML_DEVICE', 'cpu')
