@@ -1,61 +1,155 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
-from dataclasses import dataclass
-import numpy as np
-from PIL import Image
+from __future__ import annotations
+
 from io import BytesIO
 import os
+from time import perf_counter
+from typing import TypedDict
+
+from fastapi import APIRouter, File, HTTPException, UploadFile
+import numpy as np
+from PIL import Image, UnidentifiedImageError
+from pydantic import BaseModel, Field
+
 
 router = APIRouter(prefix='/predict', tags=['predict'])
 
-@dataclass
-class Detection:
+ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
+BBox = tuple[int, int, int, int]
+STUB_DETECTION_ENABLED = os.getenv('ML_ENABLE_STUB_DETECTION', '').lower() in {
+    '1',
+    'true',
+    'yes',
+}
+
+
+class ImageMeta(TypedDict):
+    filename: str
+    file_extension: str
+    width: int
+    height: int
+
+
+class Detection(BaseModel):
     label: str
-    score: float
-    bbox: tuple[int, int, int, int]
+    score: float = Field(ge=0.0, le=1.0)
+    bbox: BBox = Field(
+        description='Bounding box in pixels as (x, y, w, h).',
+    )
 
 
-@router.post('/image')
-async def predict_image(file: UploadFile = File(...)):
+class PredictImageResponse(BaseModel):
+    filename: str
+    width: int = Field(gt=0)
+    height: int = Field(gt=0)
+    file_extension: str
+    detections: list[Detection]
+    processing_ms: float = Field(ge=0.0)
+
+
+@router.post('/image', response_model=PredictImageResponse)
+async def predict_image(file: UploadFile = File(...)) -> PredictImageResponse:
     content = await file.read()
     image, meta = decode_image(file.filename, content)
-    detections = run_inference(image)
-    return build_response(meta, detections)
+    detections_result = run_inference(image)
+    return build_response(meta, detections_result)
 
-def decode_image(filename: str, content: bytes) -> tuple[np.ndarray, dict]:
+
+def decode_image(filename: str | None, content: bytes) -> tuple[np.ndarray, ImageMeta]:
+    if not filename:
+        raise HTTPException(status_code=400, detail='Имя файла не передано')
+
     file_extension = os.path.splitext(filename)[1].lower()
-    allowed_extensions = ['.jpg', '.jpeg', '.png']
-
-    if file_extension not in allowed_extensions:
+    if file_extension not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail='Недопустимый формат файла')
+
     try:
         img = Image.open(BytesIO(content))
-    except Exception:
-        raise HTTPException(status_code=400, detail='Файл не является корректным изображением')
+        img.load()
+    except UnidentifiedImageError as error:
+        raise HTTPException(
+            status_code=400,
+            detail='Файл не является корректным изображением',
+        ) from error
+
     img = img.convert('RGB')
     width, height = img.size
-    img_arr = np.array(img)
+    image_array = np.array(img)
 
-    return (img_arr, {'filename': filename, 'file_extension': file_extension, 'width': width, 'height': height})
+    return image_array, ImageMeta(
+        filename=filename,
+        file_extension=file_extension,
+        width=width,
+        height=height,
+    )
 
 
 def run_inference(image: np.ndarray) -> tuple[list[Detection], float]:
-    detections = [Detection(
-            label = 'danger',
-            score = 0.5,
-            bbox = (100, 200, 150, 250),
-    )]
+    started_at = perf_counter()
+    detections: list[Detection] = []
 
-    processing_ms = 12.5
+    if STUB_DETECTION_ENABLED:
+        height, width = image.shape[:2]
+        detections.append(
+            Detection(
+                label='dangerous_object',
+                score=0.5,
+                bbox=make_stub_bbox(width=width, height=height),
+            )
+        )
+        processing_ms = (perf_counter() - started_at) * 1000
+        return detections, processing_ms
+
+    from ml.config import ML_DEVICE
+    from ml.inference.yolo_model import get_model
+
+    model = get_model()
+    results = model.predict(
+        source=image,
+        verbose=False,
+        conf=0.25,
+        device=ML_DEVICE,
+    )
+    processing_ms = (perf_counter() - started_at) * 1000
+
+    result = results[0]
+    for box in result.boxes:
+        x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+        bbox = (x1, y1, x2 - x1, y2 - y1)
+
+        score = float(box.conf[0].item())
+        class_id = int(box.cls[0].item())
+        label = result.names[class_id]
+
+        detections.append(
+            Detection(
+                label=label,
+                score=score,
+                bbox=bbox,
+            )
+        )
+
     return detections, processing_ms
 
-def build_response(meta: dict, detections_result: tuple[list[Detection], float]) -> dict:
+
+def make_stub_bbox(width: int, height: int) -> BBox:
+    box_width = max(40, width // 4)
+    box_height = max(40, height // 4)
+    x = max(0, (width - box_width) // 2)
+    y = max(0, (height - box_height) // 2)
+    return (x, y, box_width, box_height)
+
+
+def build_response(
+    meta: ImageMeta,
+    detections_result: tuple[list[Detection], float],
+) -> PredictImageResponse:
     detections, processing_ms = detections_result
 
-    return {
-        'filename': meta.get('filename'),
-        'width': meta['width'],
-        'height': meta['height'],
-        'file_extension': meta.get('file_extension'),
-        'detections': detections,
-        'processing_ms': processing_ms,
-    }
+    return PredictImageResponse(
+        filename=meta['filename'],
+        width=meta['width'],
+        height=meta['height'],
+        file_extension=meta['file_extension'],
+        detections=detections,
+        processing_ms=processing_ms,
+    )

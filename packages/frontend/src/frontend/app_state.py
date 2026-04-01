@@ -12,7 +12,7 @@ class Camera:
 class AppState(QObject):
     cameras_changed = Signal()
     selection_changed = Signal()
-    detection_toggled = Signal()
+    detection_toggled = Signal(bool)
     event_received = Signal()
 
     def __init__(self):
@@ -28,7 +28,7 @@ class AppState(QObject):
         self.cameras_changed.emit()
 
     def remove_camera(self, camera_id: str):
-        self.cameras = [camera for camera in self.cameras if camera.id != self.camera_id]
+        self.cameras = [camera for camera in self.cameras if camera.id != camera_id]
 
         if self.selection_camera_id == camera_id:
             self.selection_camera_id = None
@@ -37,7 +37,7 @@ class AppState(QObject):
         self.cameras_changed.emit()
 
     def set_selected_camera(self, camera_id: str | None):
-        self.selected_camera_id = camera_id
+        self.selection_camera_id = camera_id
         self.selection_changed.emit()
 
     def toggle_detection(self):

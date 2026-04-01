@@ -9,16 +9,13 @@ authors = [
 requires-python = ">=3.13"
 
 dependencies = [
-    "ml",
     "backend",
     "frontend",
 ]
 
 [tool.uv.workspace]
-members = ["packages/*"]
+members = ["packages/backend", "packages/frontend"]
 
 [tool.uv.sources]
-ml = { workspace = true }
 backend = { workspace = true }
 frontend = { workspace = true }
-

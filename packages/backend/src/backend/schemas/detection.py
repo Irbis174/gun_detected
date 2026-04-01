@@ -1,13 +1,18 @@
-from fastapi import  APIRouter, Field
-from pydantic import BaseModel
-from backend.config import ML_URL
+from pydantic import BaseModel, ConfigDict, Field
+
+
+type BBox = tuple[int, int, int, int]
 
 
 class DetectionRead(BaseModel):
-    id: int
-    camera_id: int
-    frame_ts: str
+    model_config = ConfigDict(from_attributes=True)
+
+    detection_id: int
+    test_run_id: int
+    frame_ts: float = Field(ge=0.0)
     label: str
-    confidence: float = Field(ge=0, le=1)
-    bbox: tuple[int, int, int, int]
+    score: float = Field(ge=0.0, le=1.0)
+    bbox: BBox = Field(
+        description='Bounding box in pixels as (x, y, w, h).',
+    )
     processing_ms: float = Field(ge=0.0)
