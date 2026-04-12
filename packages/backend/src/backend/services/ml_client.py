@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, ValidationError
 from backend.config import ML_URL
 from backend.status.status import check_ml_health
 
+import asyncio
 
 BBox = tuple[int, int, int, int]
 
@@ -73,5 +74,43 @@ class MLClient:
         except ValidationError as error:
             raise MLClientError('ML service returned invalid response schema') from error
 
+    async def run_tracking(
+        self,
+        *,
+        source: str,
+        test_run_id: int,
+        detection_id: int,
+        frame_index: int,
+        frame_ts: float,
+        bbox: BBox,
+        label: str,
+    ) -> dict:
+        payload = {
+            'source': source,
+            'test_run_id': test_run_id,
+            'detection_id': detection_id,
+            'frame_index': frame_index,
+            'frame_ts': frame_ts,
+            'bbox': list(bbox),
+            'label': label,
+        }
 
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                response = await client.post(
+                    f'{self.base_url}/inference/stream',
+                    json=payload,
+                )
+                response.raise_for_status()
+        except httpx.HTTPStatusError as error:
+            detail = error.response.text.strip() or 'ML service returned an error'
+            raise MLClientError(
+                f'ML service returned {error.response.status_code}: {detail}'
+            ) from error
+        except httpx.RequestError as error:
+            raise MLClientError(f'Could not reach ML service: {error}') from error
+
+        return response.json()
+
+    
 ml_client = MLClient()

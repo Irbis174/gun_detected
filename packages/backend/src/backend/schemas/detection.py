@@ -16,3 +16,4 @@ class DetectionRead(BaseModel):
         description='Bounding box in pixels as (x, y, w, h).',
     )
     processing_ms: float = Field(ge=0.0)
+

@@ -10,18 +10,13 @@ import numpy as np
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, Field
 
+from ml.config import ML_DEVICE
+from ml.inference.yolo_model import get_model
+
 router = APIRouter(prefix='/predict', tags=['predict'])
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
 BBox = tuple[int, int, int, int]
-
-
-def stub_detection_enabled() -> bool:
-    return os.getenv('ML_ENABLE_STUB_DETECTION', '').lower() in {
-        '1',
-        'true',
-        'yes',
-    }
 
 
 class ImageMeta(TypedDict):
@@ -89,41 +84,13 @@ def run_inference(image: np.ndarray) -> tuple[list[Detection], float]:
     started_at = perf_counter()
     detections: list[Detection] = []
 
-    if stub_detection_enabled():
-        height, width = image.shape[:2]
-        detections.append(
-            Detection(
-                label='dangerous_object',
-                score=0.5,
-                bbox=make_stub_bbox(width=width, height=height),
-            )
-        )
-        processing_ms = (perf_counter() - started_at) * 1000
-        return detections, processing_ms
-
-    try:
-        from ml.config import ML_DEVICE
-        from ml.inference.yolo_model import get_model
-
-        model = get_model()
-        results = model.predict(
-            source=image,
-            verbose=False,
-            conf=0.25,
-            device=ML_DEVICE,
-        )
-    except Exception:
-        os.environ['ML_ENABLE_STUB_DETECTION'] = '1'
-        height, width = image.shape[:2]
-        detections.append(
-            Detection(
-                label='dangerous_object',
-                score=0.5,
-                bbox=make_stub_bbox(width=width, height=height),
-            )
-        )
-        processing_ms = (perf_counter() - started_at) * 1000
-        return detections, processing_ms
+    model = get_model()
+    results = model.predict(
+        source=image,
+        verbose=False,
+        conf=0.25,
+        device=ML_DEVICE,
+    )
 
     processing_ms = (perf_counter() - started_at) * 1000
 
@@ -145,15 +112,6 @@ def run_inference(image: np.ndarray) -> tuple[list[Detection], float]:
         )
 
     return detections, processing_ms
-
-
-def make_stub_bbox(width: int, height: int) -> BBox:
-    box_width = max(40, width // 4)
-    box_height = max(40, height // 4)
-    x = max(0, (width - box_width) // 2)
-    y = max(0, (height - box_height) // 2)
-    return (x, y, box_width, box_height)
-
 
 def build_response(
     meta: ImageMeta,
