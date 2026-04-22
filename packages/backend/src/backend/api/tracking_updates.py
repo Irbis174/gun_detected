@@ -34,5 +34,7 @@ def get_tracking_updates(test_run_id: int | None = None):
 
 
 @router.get('/tracking-updates/latest', response_model=list[TrackingUpdateRead])
-def get_latest_tracking_updates():
-    return tracking_update_repo.latest()
+def get_latest_tracking_updates(test_run_id: int | None = None):
+    if test_run_id is None:
+        return tracking_update_repo.latest()
+    return tracking_update_repo.latest_by_test_run_id(test_run_id)

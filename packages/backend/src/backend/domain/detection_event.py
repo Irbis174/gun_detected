@@ -9,3 +9,6 @@ class DetectionEvent():
     score: float
     bbox: tuple[int, int, int, int]
     processing_ms: float
+    source_id: int | None = None
+    frame_index: int | None = None
+    frame_path: str | None = None

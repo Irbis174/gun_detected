@@ -1,5 +1,5 @@
-from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout
 from PySide6.QtCore import Signal, Qt
+from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout
 
 
 class CameraTile(QFrame):
@@ -26,7 +26,7 @@ class CameraTile(QFrame):
         layout = QVBoxLayout(self)
 
         self.name_label = QLabel(name)
-        self.status_label = QLabel('Онлайн' if online else 'Оффлайн')
+        self.status_label = QLabel('В сети' if online else 'Не в сети')
         self.preview_label = QLabel('Здесь будет превью')
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview_label.setMinimumHeight(180)

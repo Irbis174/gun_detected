@@ -91,20 +91,11 @@ async def execute_test_run(test_run_id: int, sample_every: int = 5):
         )
 
     runner = VideoTestRunner(sample_every=sample_every)
-    source_type = source.source_type.strip().lower()
-
-    if source_type in {'webcam', 'camera'}:
-        test_run.status = 'scheduled'
-        test_run.started_at = None
-        test_run.finished_at = None
-        _start_background_test_run(runner=runner, test_run_id=test_run_id)
-        return test_run
-
-    try:
-        await runner.run(test_run_id)
-    except ValueError as error:
-        raise HTTPException(400, str(error)) from error
-
+    test_run.status = 'scheduled'
+    test_run.started_at = None
+    test_run.finished_at = None
+    test_run_repo.update(test_run)
+    _start_background_test_run(runner=runner, test_run_id=test_run_id)
     return test_run
 
 @router.post('/test-runs/{test_run_id}/stop', response_model=TestRunRead)
@@ -115,7 +106,7 @@ def stop_test_run(test_run_id: int):
 
     runner = _active_live_runners.get(test_run_id)
     if runner is None:
-        raise HTTPException(409, 'Live test run is not active')
+        raise HTTPException(409, 'Test run is not active')
 
     if test_run.status not in {'scheduled', 'running'}:
         raise HTTPException(
@@ -124,6 +115,7 @@ def stop_test_run(test_run_id: int):
         )
 
     test_run.status = 'stopping'
+    test_run_repo.update(test_run)
     runner.request_stop()
     return test_run
 

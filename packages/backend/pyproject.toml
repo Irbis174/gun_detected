@@ -8,10 +8,13 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "alembic>=1.13.0",
     "fastapi>=0.129.0",
     "httpx>=0.28.1",
     "opencv-python>=4.13.0.92",
     "pillow>=12.1.1",
+    "psycopg[binary]>=3.1.0",
+    "sqlalchemy>=2.0.0",
     "uvicorn>=0.41.0",
 ]
 

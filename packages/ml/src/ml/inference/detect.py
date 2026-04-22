@@ -88,7 +88,7 @@ def run_inference(image: np.ndarray) -> tuple[list[Detection], float]:
     results = model.predict(
         source=image,
         verbose=False,
-        conf=0.25,
+        conf=0.55,
         device=ML_DEVICE,
     )
 

@@ -36,6 +36,7 @@ class MLClient:
     def __init__(self, base_url: str = ML_URL, timeout_seconds: float = 10.0):
         self.base_url = base_url.rstrip('/')
         self.timeout_seconds = timeout_seconds
+        self._client: httpx.AsyncClient | None = None
 
     async def check_status(self) -> dict:
         return await check_ml_health()
@@ -48,14 +49,14 @@ class MLClient:
     ) -> MLPredictImageResponse:
         content_type = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
         files = {'file': (filename, content, content_type)}
+        client = self._get_client()
 
         try:
-            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-                response = await client.post(
-                    f'{self.base_url}/predict/image',
-                    files=files,
-                )
-                response.raise_for_status()
+            response = await client.post(
+                f'{self.base_url}/predict/image',
+                files=files,
+            )
+            response.raise_for_status()
         except httpx.HTTPStatusError as error:
             detail = error.response.text.strip() or 'ML service returned an error'
             raise MLClientError(
@@ -78,6 +79,7 @@ class MLClient:
         self,
         *,
         source: str,
+        source_id: int,
         test_run_id: int,
         detection_id: int,
         frame_index: int,
@@ -85,8 +87,10 @@ class MLClient:
         bbox: BBox,
         label: str,
     ) -> dict:
+        client = self._get_client()
         payload = {
             'source': source,
+            'source_id': source_id,
             'test_run_id': test_run_id,
             'detection_id': detection_id,
             'frame_index': frame_index,
@@ -96,12 +100,11 @@ class MLClient:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-                response = await client.post(
-                    f'{self.base_url}/inference/stream',
-                    json=payload,
-                )
-                response.raise_for_status()
+            response = await client.post(
+                f'{self.base_url}/inference/stream',
+                json=payload,
+            )
+            response.raise_for_status()
         except httpx.HTTPStatusError as error:
             detail = error.response.text.strip() or 'ML service returned an error'
             raise MLClientError(
@@ -111,6 +114,17 @@ class MLClient:
             raise MLClientError(f'Could not reach ML service: {error}') from error
 
         return response.json()
+
+    def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(
+                timeout=self.timeout_seconds,
+                limits=httpx.Limits(
+                    max_keepalive_connections=10,
+                    max_connections=20,
+                ),
+            )
+        return self._client
 
     
 ml_client = MLClient()

@@ -4,7 +4,7 @@ from backend.repositories.detection_event_repository import detection_repo
 
 
 class CandidateTracker:
-    def __init__(self, confirm_hits: int = 3, max_gap: int = 5):
+    def __init__(self, confirm_hits: int = 2, max_gap: int = 8):
         self.confirm_hits = confirm_hits
         self.max_gap = max_gap
         self.candidate_dict: dict[int, list[DetectionCandidate]] = {}
@@ -24,7 +24,7 @@ class CandidateTracker:
         dy = center_1[1] - center_2[1]
 
         distance = (dx**2 + dy**2) ** 0.5
-        threshold = max(max(w1, h1), max(w2, h2)) * 0.4
+        threshold = max(max(w1, h1), max(w2, h2)) * 1
 
         return distance < threshold
 
@@ -87,6 +87,8 @@ class CandidateTracker:
                 score=matched_candidate.best_score,
                 bbox=temporary_detection.bbox,
                 processing_ms=temporary_detection.processing_ms,
+                source_id=temporary_detection.source_id,
+                frame_index=temporary_detection.frame_index,
             )
             detection_repo.add(event)
             return event

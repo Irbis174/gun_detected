@@ -21,4 +21,4 @@ DATASET_ROOT = dataset_root_raw
 
 DEFAULT_MODEL_PATH = BASE_DIR / 'src' / 'ml' / 'inference' / 'models' / 'detect' / 'train' / 'weights' / 'best.pt'
 MODEL_PATH = os.getenv('MODEL_PATH', str(DEFAULT_MODEL_PATH))
-ML_DEVICE = os.getenv('ML_DEVICE', 'cpu')
+ML_DEVICE = os.getenv('ML_DEVICE', 'cuda')
