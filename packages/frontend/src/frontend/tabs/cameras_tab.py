@@ -194,7 +194,7 @@ class CamerasTab(QWidget):
         for camera_id in list(self.tiles):
             if camera_id not in camera_ids:
                 tile = self.tiles.pop(camera_id)
-                tile.stop_preview()
+                tile.dispose()
                 self.grid_layout.removeWidget(tile)
                 tile.deleteLater()
 
@@ -467,5 +467,5 @@ class CamerasTab(QWidget):
     def closeEvent(self, event) -> None:
         self.poll_timer.stop()
         for tile in self.tiles.values():
-            tile.stop_preview()
+            tile.dispose()
         super().closeEvent(event)

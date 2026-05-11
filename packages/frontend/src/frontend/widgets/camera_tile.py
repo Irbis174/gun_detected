@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Signal
+from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from frontend.app_state import Camera
@@ -25,6 +26,8 @@ class CameraTile(QWidget):
         self.camera = camera
         self._preview_connected = False
         self._preview_mode: str | None = None
+        self._preview_thread: VideoFeedThread | BackendPreviewThread | None = None
+        self._is_disposing = False
 
         self.setStyleSheet(
             """
@@ -142,11 +145,19 @@ class CameraTile(QWidget):
         layout.addLayout(buttons_layout)
 
     def stop_preview(self) -> None:
-        if hasattr(self, '_preview_thread') and self._preview_thread is not None:
-            self._preview_thread.stop()
-            self._preview_thread = None
+        thread = self._preview_thread
+        self._preview_thread = None
         self._preview_connected = False
         self._preview_mode = None
+
+        if thread is not None:
+            self._disconnect_preview_thread(thread)
+            thread.stop()
+            thread.deleteLater()
+
+    def dispose(self) -> None:
+        self._is_disposing = True
+        self.stop_preview()
 
     def _is_live_camera(self) -> bool:
         return self.camera.source_type.strip().lower() in {'webcam', 'camera'}
@@ -159,10 +170,12 @@ class CameraTile(QWidget):
         }
 
     def _ensure_preview_mode(self) -> None:
+        if self._is_disposing:
+            return
+
         desired_mode = 'backend' if self._wants_backend_preview() else 'local'
         if (
             self._preview_mode == desired_mode
-            and hasattr(self, '_preview_thread')
             and self._preview_thread is not None
             and self._preview_thread.isRunning()
         ):
@@ -176,24 +189,28 @@ class CameraTile(QWidget):
             self.preview.setText('Превью недоступно')
 
         if desired_mode == 'backend':
-            self._preview_thread = BackendPreviewThread(
+            thread = BackendPreviewThread(
                 source_id=self.camera.source_id,
                 parent=self,
             )
         else:
-            self._preview_thread = VideoFeedThread(
+            thread = VideoFeedThread(
                 source_type=self.camera.source_type,
                 source=self.camera.source,
                 parent=self,
             )
 
-        self._preview_thread.frame_ready.connect(self.preview.set_frame)
-        self._preview_thread.connection_changed.connect(self._on_connection_changed)
-        self._preview_thread.error.connect(self._on_preview_error)
-        self._preview_thread.start()
+        self._preview_thread = thread
         self._preview_mode = desired_mode
+        thread.frame_ready.connect(self._on_frame_ready)
+        thread.connection_changed.connect(self._on_connection_changed)
+        thread.error.connect(self._on_preview_error)
+        thread.start()
 
     def apply_camera(self, camera: Camera) -> None:
+        if self._is_disposing:
+            return
+
         self.camera = camera
         self._ensure_preview_mode()
         self.name_label.setText(camera.name)
@@ -229,14 +246,34 @@ class CameraTile(QWidget):
         self.stop_button.setEnabled(camera.test_run_status in stoppable_statuses)
         self.delete_button.setEnabled(True)
 
+    def _on_frame_ready(self, image: QImage) -> None:
+        if self._is_disposing or self.sender() is not self._preview_thread:
+            return
+
+        self.preview.set_frame(image)
+
     def _on_connection_changed(self, connected: bool) -> None:
+        if self._is_disposing or self.sender() is not self._preview_thread:
+            return
+
         self._preview_connected = connected
         self.apply_camera(self.camera)
 
     def _on_preview_error(self, message: str) -> None:
+        if self._is_disposing or self.sender() is not self._preview_thread:
+            return
+
         if not self._preview_connected:
             self.preview.setText(message)
 
+    @staticmethod
+    def _disconnect_preview_thread(thread: VideoFeedThread | BackendPreviewThread) -> None:
+        for signal in (thread.frame_ready, thread.connection_changed, thread.error):
+            try:
+                signal.disconnect()
+            except (RuntimeError, TypeError):
+                pass
+
     def closeEvent(self, event) -> None:
-        self.stop_preview()
+        self.dispose()
         super().closeEvent(event)

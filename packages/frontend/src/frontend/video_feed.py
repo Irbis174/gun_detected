@@ -60,7 +60,8 @@ class VideoFeedThread(QThread):
 
     def stop(self) -> None:
         self.requestInterruption()
-        self.wait(1000)
+        if self.isRunning():
+            self.wait()
 
     @staticmethod
     def _resolve_source(*, source_type: str, source_value: str) -> str | int:
@@ -151,7 +152,8 @@ class BackendPreviewThread(QThread):
 
     def stop(self) -> None:
         self.requestInterruption()
-        self.wait(1000)
+        if self.isRunning():
+            self.wait()
 
     def _sleep_interval(self) -> None:
         end_time = time.perf_counter() + self.poll_interval_seconds
