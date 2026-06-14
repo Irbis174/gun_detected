@@ -1,0 +1,30 @@
+# Stable ByteTrack profile for Ultralytics YOLO video tracking.
+#
+# Use with model.track(..., tracker=".../bytetrack_stable.yaml", persist=True).
+# Keep the model.track conf value <= track_low_thresh so ByteTrack can use
+# low-confidence detections for second-stage association.
+
+tracker_type: bytetrack
+
+# First association pass. Boxes above this score are trusted for regular
+# matching against active/lost tracks.
+track_high_thresh: 0.35
+
+# Second association pass. Low-score detections in this range are used only
+# to recover or continue an existing track, not to start a new one.
+track_low_thresh: 0.10
+
+# New track creation threshold. Kept deliberately high to suppress occasional
+# false detections from becoming separate tracks.
+new_track_thresh: 0.55
+
+# Frames to keep a lost track alive. At 30 FPS this is about three seconds,
+# which helps when the object briefly disappears or the detector skips frames.
+track_buffer: 90
+
+# Association distance threshold. Slightly stricter than the default 0.80,
+# reducing jumps to nearby false positives while still tolerating motion.
+match_thresh: 0.75
+
+# Fuse detection confidence into association cost for cleaner matching.
+fuse_score: True

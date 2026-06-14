@@ -17,6 +17,7 @@ dependencies = [
     "dotenv>=0.9.9",
     "mpmath>=1.3",
     "ultralytics>=8,<9",
+    "lapx>=0.9.4",
 ]
 
 [build-system]

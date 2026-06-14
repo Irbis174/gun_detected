@@ -21,4 +21,6 @@ DATASET_ROOT = dataset_root_raw
 
 DEFAULT_MODEL_PATH = BASE_DIR / 'src' / 'ml' / 'inference' / 'models' / 'detect' / 'train-2' / 'weights' / 'best.pt'
 MODEL_PATH = os.getenv('MODEL_PATH', str(DEFAULT_MODEL_PATH))
+DEFAULT_TRACKER_CONFIG_PATH = BASE_DIR / 'src' / 'ml' / 'inference' / 'trackers' / 'bytetrack_stable.yaml'
+TRACKER_CONFIG_PATH = os.getenv('TRACKER_CONFIG_PATH', str(DEFAULT_TRACKER_CONFIG_PATH))
 ML_DEVICE = os.getenv('ML_DEVICE', 'cuda')

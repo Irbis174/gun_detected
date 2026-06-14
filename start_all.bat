@@ -78,15 +78,15 @@ if errorlevel 1 (
 popd
 
 echo [4/5] Starting ML and backend services in separate windows...
-start "Diploma ML service" powershell -NoExit -ExecutionPolicy Bypass -Command "$env:BACKEND_URL='%BACKEND_URL%'; cd '%ROOT%packages\ml'; uv run uvicorn ml.main:app --host 127.0.0.1 --port 8000 --reload"
+start "Diploma ML service" powershell -NoExit -ExecutionPolicy Bypass -Command "$env:BACKEND_URL='%BACKEND_URL%'; cd '%ROOT%packages\ml'; if (Test-Path '.\src') { $env:PYTHONPATH=(Resolve-Path '.\src').Path }; uv run uvicorn ml.main:app --host 127.0.0.1 --port 8000 --reload"
 
 timeout /t 3 /nobreak >nul
 
-start "Diploma Backend" powershell -NoExit -ExecutionPolicy Bypass -Command "$env:DATABASE_URL='%DATABASE_URL%'; $env:ML_URL='%ML_URL%'; cd '%ROOT%packages\backend'; uv run uvicorn backend.main:app --host 127.0.0.1 --port 8001 --reload"
+start "Diploma Backend" powershell -NoExit -ExecutionPolicy Bypass -Command "$env:DATABASE_URL='%DATABASE_URL%'; $env:ML_URL='%ML_URL%'; cd '%ROOT%packages\backend'; if (Test-Path '.\src') { $env:PYTHONPATH=(Resolve-Path '.\src').Path }; uv run uvicorn backend.main:app --host 127.0.0.1 --port 8001 --reload"
 
 echo [5/5] Starting frontend...
 timeout /t 3 /nobreak >nul
-start "Diploma Frontend" powershell -NoExit -ExecutionPolicy Bypass -Command "$env:BACKEND_URL='%BACKEND_URL%'; $env:ML_URL='%ML_URL%'; cd '%ROOT%packages\frontend'; uv run python -m frontend.main"
+start "Diploma Frontend" powershell -NoExit -ExecutionPolicy Bypass -Command "$env:BACKEND_URL='%BACKEND_URL%'; $env:ML_URL='%ML_URL%'; cd '%ROOT%packages\frontend'; if (Test-Path '.\src') { $env:PYTHONPATH=(Resolve-Path '.\src').Path }; uv run python -m frontend.main"
 
 echo.
 echo [OK] Launch commands were sent.
