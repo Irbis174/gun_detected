@@ -1,8 +1,11 @@
 import asyncio
+from contextlib import suppress
+from dataclasses import dataclass
 import datetime
 import logging
 import os
 from time import perf_counter
+from typing import Any
 
 import cv2
 
@@ -14,9 +17,17 @@ from backend.repositories.preview_frame_repository import preview_frame_repo
 from backend.repositories.test_run_repository import test_run_repo
 from backend.services.candidate_tracker import CandidateTracker
 from backend.services.detection_frame_store import detection_frame_store
-from backend.services.ml_client import MLClientError, ml_client
+from backend.services.ml_client import MLClientError, MLPredictImageResponse, ml_client
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class PendingFrameInference:
+    frame_index: int
+    frame_ts: float
+    frame: Any
+    task: asyncio.Task[MLPredictImageResponse]
 
 
 class VideoTestRunner:
@@ -40,6 +51,7 @@ class VideoTestRunner:
         fps = 0.0
         started_monotonic = perf_counter()
         tracking_started = False
+        pending_live_inference: PendingFrameInference | None = None
         normalized_source_type = source.source_type.strip().lower()
         is_live_source = normalized_source_type in {'webcam', 'camera'}
 
@@ -82,17 +94,41 @@ class VideoTestRunner:
                 if preview_bytes is not None:
                     preview_frame_repo.set(source.source_id, preview_bytes)
 
-                if tracking_started:
-                    if is_live_source:
-                        if cap is not None:
-                            cap.release()
-                            cap = None
-                        while not self._stop_requested:
-                            await asyncio.sleep(0.5)
-                        test_run.status = 'stopped'
-                        self._save_test_run(test_run)
-                        break
+                if is_live_source and pending_live_inference is not None:
+                    if pending_live_inference.task.done():
+                        inference = pending_live_inference
+                        pending_live_inference = None
+                        try:
+                            ml_response = inference.task.result()
+                        except MLClientError:
+                            logger.exception(
+                                'ML inference failed for live frame_index=%s',
+                                inference.frame_index,
+                            )
+                        except Exception:
+                            logger.exception(
+                                'Unexpected ML inference error for live frame_index=%s',
+                                inference.frame_index,
+                            )
+                        else:
+                            self._handle_detections(
+                                test_run=test_run,
+                                source_id=source.source_id,
+                                source_value=source.source,
+                                frame=inference.frame,
+                                frame_index=inference.frame_index,
+                                frame_ts=inference.frame_ts,
+                                ml_response=ml_response,
+                                start_stream_tracking=False,
+                            )
+                            test_run.processed_frames += 1
+                            self._save_test_run(test_run)
+                            self.tracker.prune_stale_candidates(
+                                test_run.test_run_id,
+                                inference.frame_index,
+                            )
 
+                if tracking_started and not is_live_source:
                     test_run.processed_frames += 1
                     self._save_test_run(test_run)
                     frame_index += 1
@@ -102,6 +138,13 @@ class VideoTestRunner:
 
                 if frame_index % self.sample_every != 0:
                     frame_index += 1
+                    if is_live_source:
+                        await asyncio.sleep(0)
+                    continue
+
+                if is_live_source and pending_live_inference is not None:
+                    frame_index += 1
+                    await asyncio.sleep(0)
                     continue
 
                 ok, encoded = cv2.imencode(
@@ -111,6 +154,8 @@ class VideoTestRunner:
                 )
                 if not ok:
                     frame_index += 1
+                    if is_live_source:
+                        await asyncio.sleep(0)
                     continue
 
                 frame_bytes = encoded.tobytes()
@@ -119,6 +164,25 @@ class VideoTestRunner:
                     fps=fps,
                     started_monotonic=started_monotonic,
                 )
+
+                if is_live_source:
+                    if pending_live_inference is None:
+                        task = asyncio.create_task(
+                            ml_client.predict_image(
+                                filename=f'frame_{frame_index:06d}.jpg',
+                                content=frame_bytes,
+                            )
+                        )
+                        pending_live_inference = PendingFrameInference(
+                            frame_index=frame_index,
+                            frame_ts=frame_ts,
+                            frame=frame.copy(),
+                            task=task,
+                        )
+
+                    frame_index += 1
+                    await asyncio.sleep(0)
+                    continue
 
                 try:
                     ml_response = await ml_client.predict_image(
@@ -129,46 +193,16 @@ class VideoTestRunner:
                     frame_index += 1
                     continue
 
-                for detection in ml_response.detections:
-                    temporary_detection = TemporaryDetection(
-                        test_run_id=test_run_id,
-                        source_id=source.source_id,
-                        frame_index=frame_index,
-                        frame_ts=frame_ts,
-                        label=detection.label,
-                        score=detection.score,
-                        bbox=detection.bbox,
-                        processing_ms=ml_response.processing_ms,
-                    )
-                    event = self.tracker.add(temporary_detection)
-                    if event is not None:
-                        event.frame_path = detection_frame_store.save(
-                            frame,
-                            test_run_id=test_run_id,
-                            detection_id=event.detection_id,
-                            frame_index=frame_index,
-                            bbox=event.bbox,
-                            label=event.label,
-                            score=event.score,
-                        )
-                        detection_repo.update_frame_path(
-                            event.detection_id,
-                            event.frame_path,
-                        )
-                        test_run.detections_count += 1
-                        self._save_test_run(test_run)
-                        tracking_started = True
-                        self._schedule_tracking(
-                            source=source.source,
-                            source_id=source.source_id,
-                            test_run_id=test_run_id,
-                            detection_id=event.detection_id,
-                            frame_index=frame_index,
-                            frame_ts=frame_ts,
-                            bbox=event.bbox,
-                            label=event.label,
-                        )
-                        break
+                tracking_started = self._handle_detections(
+                    test_run=test_run,
+                    source_id=source.source_id,
+                    source_value=source.source,
+                    frame=frame,
+                    frame_index=frame_index,
+                    frame_ts=frame_ts,
+                    ml_response=ml_response,
+                    start_stream_tracking=True,
+                )
                 test_run.processed_frames += 1
                 self._save_test_run(test_run)
                 frame_index += 1
@@ -181,6 +215,10 @@ class VideoTestRunner:
             test_run.status = 'failed'
             raise
         finally:
+            if pending_live_inference is not None:
+                pending_live_inference.task.cancel()
+                with suppress(asyncio.CancelledError, Exception):
+                    await pending_live_inference.task
             test_run.finished_at = datetime.datetime.now()
             self._save_test_run(test_run)
             preview_frame_repo.clear(source.source_id)
@@ -284,6 +322,64 @@ class VideoTestRunner:
         )
         self._tracking_tasks.add(task)
         task.add_done_callback(self._tracking_tasks.discard)
+
+    def _handle_detections(
+        self,
+        *,
+        test_run: TestRun,
+        source_id: int,
+        source_value: str,
+        frame,
+        frame_index: int,
+        frame_ts: float,
+        ml_response: MLPredictImageResponse,
+        start_stream_tracking: bool,
+    ) -> bool:
+        for detection in ml_response.detections:
+            temporary_detection = TemporaryDetection(
+                test_run_id=test_run.test_run_id,
+                source_id=source_id,
+                frame_index=frame_index,
+                frame_ts=frame_ts,
+                label=detection.label,
+                score=detection.score,
+                bbox=detection.bbox,
+                processing_ms=ml_response.processing_ms,
+            )
+            event = self.tracker.add(temporary_detection)
+            if event is None:
+                continue
+
+            event.frame_path = detection_frame_store.save(
+                frame,
+                test_run_id=test_run.test_run_id,
+                detection_id=event.detection_id,
+                frame_index=frame_index,
+                bbox=event.bbox,
+                label=event.label,
+                score=event.score,
+            )
+            detection_repo.update_frame_path(
+                event.detection_id,
+                event.frame_path,
+            )
+            test_run.detections_count += 1
+            self._save_test_run(test_run)
+            if start_stream_tracking:
+                self._schedule_tracking(
+                    source=source_value,
+                    source_id=source_id,
+                    test_run_id=test_run.test_run_id,
+                    detection_id=event.detection_id,
+                    frame_index=frame_index,
+                    frame_ts=frame_ts,
+                    bbox=event.bbox,
+                    label=event.label,
+                )
+                return True
+            break
+
+        return False
 
     async def _start_tracking(
         self,
