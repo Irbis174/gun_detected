@@ -114,3 +114,6 @@ class CandidateTracker:
         for candidate in candidates.copy():
             if current_frame - candidate.last_seen_frame > self.max_gap:
                 self.remove(candidate)
+
+    def reset(self, test_run_id: int) -> None:
+        self.candidate_dict.pop(test_run_id, None)

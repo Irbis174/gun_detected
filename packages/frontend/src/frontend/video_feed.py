@@ -92,7 +92,7 @@ class BackendPreviewThread(QThread):
         *,
         source_id: int,
         base_url: str = BACKEND_URL,
-        poll_interval_seconds: float = 0.15,
+        poll_interval_seconds: float = 0.04,
         parent=None,
     ):
         super().__init__(parent)
@@ -158,7 +158,7 @@ class BackendPreviewThread(QThread):
     def _sleep_interval(self) -> None:
         end_time = time.perf_counter() + self.poll_interval_seconds
         while not self.isInterruptionRequested() and time.perf_counter() < end_time:
-            self.msleep(20)
+            self.msleep(10)
 
 
 def _convert_cv_frame_to_qimage(frame) -> QImage:
